@@ -1,39 +1,7 @@
-# A Framework of Data Assimilation for Wind Flow Field by Physics-informed Neural Networks
-This repository contains the source code for the research presented in the paper [A Framework of Data Assimilation for Wind Flow Field by Physics-informed Neural Networks](https://arxiv.org/abs/2401.17001)
+本文采用由美国国家可再生能源实验室（NREL）开发、基于 OpenFOAM 的 LES 风电场模拟器 SOWFA。该模拟器专门用于模拟湍流大气边界层。本文中，SOWFA 在平坦地形上生成一个尺寸为 3km*3km*1km 的长方体风场。计算采用12m*12m*12m 的均匀网格，总计  5.25*10^6个单元。平均自由来流风速设为8m/s，大气稳定度为中性。
 
-## 1. Overview
-The main program, `main.py`, is the training process, in which the [wandb](https://wandb.ai/site) is included to search the optimized hyperparameter automatically. Physics-informed Neural Network (PINN) is defined in `pinn_model.py` under the framework of [PyTorch](https://pytorch.org/). Four commonly available types of measurement data are supported: LoS wind speed, velocity vector, velocity component, and pressure. Given the turbulent nature of atmospheric boundary layer flow, the Reynolds-Averaged Navier-Stokes (RANS) equations are employed as the flow governing equations. The turbulence eddy viscosity, ${\nu _t}$, is directly predicted as an output variable of the PINN. The `pred_write.py` is used to reconstruct the wind flow field by a trained PINN. The reconstructed flow field data is written into `.h5` files. The script `transfer.py` is used for online deployment of the pre-trained PINN, assimilating real-time measured data. All the requirements are included in `requirement.txt`.
-
-## 2. Test case
-The test wind flow field is an atmospheric boundary layer flow simulated by [SOWFA (Simulator fOr Wind Farm Applications)](https://www.nrel.gov/wind/nwtc/sowfa.html). The flow field within the horizontal plane upstream of the wind turbine site is chosen to be the test area of the proposed framework. 
-
-![Fig2_CFD_Result](./Visualization/Fig2_CFD_Result.jpg)
-Section 3.1 of the paper investigates the accuracy of assimilating different types of measurement data. The flow field reconstructed by the trained model in Case 8, as well as the error compared to the actual values, are presented as follows.
-
-![Case8Combine100s](./Visualization/Case8Combine100s.gif)
-
-The comparison of the spatial extrapolated wind flow field by the PINN trained in Case 8 with the ground truth within the region $x \in [-6D,2D]$, $y \in [-2D,2D]$. The dotted rectangular frame represents the range of equation points. 
-
-![Case8_Spatio_Extrapolation](./Visualization/Case8_Spatio_Extrapolation.gif)
-
-Since detailed flow field information is reconstructed, other flow field characteristics such as effective wind speed and instantaneous speed at a specific location can also be obtained.
-Effective wind speed is defined as the average of the wind speed projected onto the rotor plane:
-
- $${\overline u_{eff} (x,t)} = \frac{1}{{{N_y}}}\sum\limits_{i = 1}^{{N_y}} {u(x,{y_i},t)},\quad {y_i} \in \left( { - D/2,D/2} \right)$$
-
-![Case8_Ueff](./Visualization/Case8_Ueff.jpg)
-
-## 3. Transfer learning
-Section 3.4 of the paper examines the feasibility of deploying this framework online using transfer learning. The incorporation of transfer learning enables PINN to predict flow fields over extended periods. Historically, PINN has operated exclusively in an offline mode. This work presents a potential solution for online deployment. The pre-trained PINN is deployed online and then trained on the dataset of real-time measurement data over a certain period. The transfer learning duration required is less than the actual physical flow time, yet the model achieves acceptable accuracy in reconstructing the flow field for this period. At the wind turbine site, the maximum error between the effective wind speed predicted online and the actual wind speed is only 3.7%. This represents a significant improvement compared to models that have not undergone transfer learning. 
-
-![Trans_Ueff](./Visualization/Trans_Ueff.jpg)
-
-It must be acknowledged that the prediction of velocity fluctuations is not as accurate as the fully trained PINN. The predicted flow fields displayed following also confirm this observation. The wind speed distribution and direction predicted by the PINN with transfer learning are broadly akin to the ground truth. However, there are some differences in the high-speed areas. It is observed that the intricate details of the wind flow field are not well predicted. The whole predicted wind flow field exhibits smoothness. In contrast, the wind speed distribution predicted by the PINN model without transfer learning shows significant deviations. The results have demonstrated the capability of the PINN, after transfer learning, to predict the evolution of the flow field over a longer period. Considering the scenario of online deployment, the network cannot be fully trained within the constraint of a time frame shorter than the physical flow duration. Despite this, transfer learning remains a promising application, with the potential to solve the long-term prediction weakness of PINN.
-
-![Case8-2-trans-Combine100s](./Visualization/Case8-2-trans-Combine100s.gif)
-
-## 4. License
-To further promote the utilization of renewable energy, the framework is fully open-sourced under the [MIT License](https://opensource.org/licenses/MIT), and collaborative development is also encouraged.
-
-## 5. Acknowledgments
-Special thanks to Raissi Maziar for the inspiration and foundational work in the field of [Physics-Informed Neural Networks](https://github.com/maziarraissi/HFM). Thanks to Jincheng Zhang for his pioneering research of [introducing PINN to wind energy](https://www.sciencedirect.com/science/article/abs/pii/S0306261921001732), and for providing the simulation cases in the folder `./SOWFA.script`.
+风场设置
+仿真首先以0.5s的时间步长运行20000s，以建立准平衡流场。随后仿真继续以0.02s  的时间步长运行500s，其中最后100s 的流场作为真实值。虽然风力机转子的阻塞效应会扰动转子附近流场，但在上游目标区域自由来流中该影响可忽略 。因此，本文不考虑风力机的空气动力学影响。计算域中心被指定为风力机安装站址，转子直径为D=60m。在该设置下，以参考直径D=60m 计算的 Reynolds 数为4.8*10^7。
+图展示了用于数据同化研究的区域。本文目标区域为风力机上游轮毂高度  H=90m水平平面内尺寸为4D*2D  的矩形区域。为便于说明，目标区域采用图所示的相对坐标系表示：转子轴方向为x 轴，来流方向为+x方向，转子中心在相对坐标系中的位置为(-10m,0m)。
+实验采用 SOWFA（Simulator fOr Wind Farm Applications）生成的大气边界层水平截面流场作为参考数据。SOWFA 基于 OpenFOAM 数值框架，常用于风电场大涡模拟、尾流演化和边界层湍流研究 [14-16]。本文关注目标区域内的二维水平截面，将完整数值场作为验证基准，将稀疏多源观测作为训练约束。验证数据覆盖49*25个空间点和 100 个时间步，共 122500 个时空样本。
+图展示了多源观测点与完整验证网格的空间布局。灰色网格表示验证区域，紫色点表示 LiDAR 光束采样位置，蓝色、绿色和红色标记分别表示速度分量、速度矢量和压力观测位置。可以看出，观测点远少于验证网格，并且不同类型观测分布在不同区域。该设置能够检验模型是否真正借助物理约束在未观测区域进行连续重构，而不是简单复制或插值测点值。
